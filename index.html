@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+<title>Examples</title>
+<meta name="description" content="">
+<meta name="keywords" content="">
+<meta name=viewport content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui">
+<style>
+	html,body,div,ul,li,h3,p,a{
+		margin: 0;
+		padding: 0;
+	}
+	ul,li{
+		list-style-type: none;
+	}
+	#list li{
+		padding: 10px;
+		border-bottom: #ccc solid 1px;
+	}
+
+	.tips{
+		opacity: 0;
+		position: fixed;
+		top:0;
+		left:0;
+		width:100%;
+		height: 100px;
+		text-align: center;
+		line-height: 100px;
+		background: rgba(0,0,0,0.6);
+		color: #03415F;
+		transition:0.1s;
+	}
+
+	
+	/*加载更多*/
+	@-webkit-keyframes rotate{
+	    from{-webkit-transform:rotate(0deg)}
+	    to{-webkit-transform:rotate(360deg)}
+	}
+	.load-more{
+	    height: 100px;
+	    /*background: #eee;*/
+	    text-align: center;
+	    line-height: 100px;
+	    font-size: 14px;
+	    overflow: hidden;
+	}
+	.load-more .load-icon {
+	    -webkit-animation-duration: 1s;
+	    -webkit-animation-iteration-count: infinite;
+	    -webkit-animation-name: rotate;
+	    -webkit-animation-timing-function: linear;
+	    background-image:url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADwAAAA8CAYAAAA6/NlyAAABGklEQVR42u2aPWoCURhFBUdBq0DchKVdAtaCaVLqKtyA2hsURd2AbdJbaCFkJynSxD/EwkbweduEuaaymDv3wFnAgZk3b773MsYYY4wxxpg7sKrmYB9u4B6OYV45eALDH3uqsTV4iQneKcYW4RcMaQluw0AcqcU+wiOJ/YYFteAuDMSG4mfoh8QuFd/dVxJ7gRXF4HcSvFCMzcIDCW4qBj+R2BMsKAa3SPBcdSs5I8Ed1eBPEvyiGcz3zmXNYL5CP6gGn0lw5GA/0l60Ev1Zqnvj4a1lMoOf0/bzEMGD5miHR3/cGgB4xCMyxFv/N8TzmDbhwSXdQTyP7sBAHPowzcelyY2exgS/qV95GMDtrysPxhhjjDHGmNRxBQwo382bLN+dAAAAAElFTkSuQmCC);
+	    background-size: 30px 30px;
+	    -webkit-background-size: 30px 30px;
+	    display: inline-block;
+	    height: 30px;
+	    vertical-align: middle;
+	    width: 30px;
+	}
+	.load-more[data-class=loading]::after {
+	    content: '加载中…';
+	    display: inline-block;
+	    margin-left: 10px;
+	    vertical-align: middle;
+	}
+</style>
+</head>
+<body>
+	<div class="tips">
+		正在刷新
+	</div>
+    <div>
+	    <ul id="list">
+	    </ul>
+	    <div id="loadingtips" class="load-more" data-class="loading"><div class="load-icon"></div></div>
+    </div>
+</body>
+<script type="text/html" id="index_tpl">
+<%if (result && result.poi && result.poi.length > 0){ %>
+    <%_.forEach(result.poi, function(item, key){%>
+        <li>
+            <a href="http://m.map.so.com/onebox/?type=detail&id=<%= item.pguid %>&d=mobile">
+                <h3><%= item.name %></h3>
+                <p class="info"><%= item.address %></p>
+            </a>
+        </li>
+    <%})%>
+<% }else if(page == "1"){ %>
+    <div class="noresult">暂无信息，请稍后再试！</div>
+<% } %>
+</script>
+<script src="js/lib/zepto.js"></script>
+<script src="js/lib/underscore.js"></script>
+<script>
+
+	(function(){
+		var winHei = $(window).height();
+		var tpl = _.template($('#index_tpl').html());
+		var tipsCon = $('.tips');
+		var listCon = $('#list'); // 内容容器
+		var timer; //隐藏提示timer
+		var app = {
+			//loading: 正在加载
+			//loaded: 加载完成
+			state: 'loaded',
+			pageNum: 0,
+			init: function(){
+				$('body').scrollTop(0);
+				this.loadData();
+				this.bindEvent();
+			},
+			loadData: function(opts){
+				opts = opts || {};
+				var me = this,
+					type = opts.type || '',
+					pageNum;
+
+				if(me.state == 'loading'){
+					return false;
+				}
+				//设置加载状态；
+				me.state = 'loading';
+				pageNum = ++me.pageNum;
+
+				$.ajax({
+					'url': 'http://restapi.map.so.com/api/simple',
+					'type': 'GET',
+					'dataType': 'jsonp',
+					'jsoncallback': 'abc',
+					'data': {
+						'sid': 1000,
+						'keyword': '餐饮',
+						'cityname': '北京',
+						'batch': pageNum,
+						'number': 10,
+
+					},
+					'success': function(data){
+						data = data || {};
+						var html = tpl({
+							result: data,
+							page: pageNum
+						});
+
+						if(pageNum == 1){
+							listCon.html(html);
+						}else{
+							listCon.append(html);
+						}
+
+						if(type == 'refresh'){
+							timer && clearTimeout(timer);
+							timer = setTimeout(function(){
+								tipsCon.css({
+									opacity: 0
+								});
+							},500);
+							
+						}
+
+						//设置加载状态;
+						me.state = 'loaded';
+
+						var scrollTop = $('body').scrollTop(),
+							listHeight = listCon.height();
+
+						//如果内容的高度小于页面的高度则继续加载数据;
+						if(listHeight < (winHei + scrollTop)){
+							me.loadData();
+						}
+					}
+				});
+			},
+			reFresh: function(){
+
+				tipsCon.css({
+					opacity: 1
+				});
+
+				//重置页数;
+				this.pageNum = 0;
+
+				this.loadData({
+					type: 'refresh'
+				});
+			},
+			bindEvent: function(){
+				var me = this,
+					touchPoints = [];
+	                scrollPoints = [0];
+
+				$('body').on('scrollLoad', function(){
+					me.loadData();
+				});
+
+				$('body').on('dropdown', function(){
+					me.reFresh();
+				});
+
+				var scrollHandle = function(event, opts){
+					opts = opts || {};
+	                var event_type = opts.event_type || '',
+	                	direction = 0, //滚动方向，1为向下滚动，2为向上滚动
+	                    scrollTop = document.body.scrollTop,
+	                    height = $(window).height(),
+	                    scrollHeight = document.body.scrollHeight,
+	                    touchPageY,
+	                    dropdown;
+
+	                if(scrollTop == 0 && event.changedTouches && event.changedTouches[0] && (touchPageY = event.changedTouches[0].pageY)){
+	                	if(event_type == 'touchstart'){
+	                		touchPoints.push(touchPageY);
+	                	}else if(event_type == 'touchend' && touchPoints[0]){
+	                		dropdown = touchPageY - touchPoints[0];
+	                		touchPoints = [];
+	                	}
+	                }else{
+	                	touchPoints = [];
+	                }
+
+	                if(!scrollPoints.length){
+	                    scrollPoints.push(scrollTop);
+	                }else{
+	                    scrollPoints = [scrollPoints[scrollPoints.length-1], scrollTop];
+	                }
+
+	                if(scrollPoints[1]){
+	                    if(scrollPoints[1] - scrollPoints[0] > 0){
+	                        direction = 1;
+	                    }else{
+	                        direction = -1;
+	                    }
+	                }
+
+	                //console.log(scrollHeight,scrollTop,height,$(window).height(),$('#CTextDiv').height());
+	                var bottom_hei = scrollHeight - (scrollTop + height);
+
+	                if(direction == 1 && bottom_hei < 100){
+	                	$('body').trigger('scrollLoad');
+	                }else if(dropdown && dropdown > 50){
+	                	$('body').trigger('dropdown');
+	                }
+	            }
+
+	            //添加滚动
+	            $(window).on('scroll', function(event){
+	            	scrollHandle(event, {
+	            		event_type: 'scroll'
+	            	})
+	            });
+	            $(window).on('touchstart', function(event){
+	            	scrollHandle(event, {
+	            		event_type: 'touchstart'
+	            	})
+	            });
+	            $(window).on('touchend', function(event){
+	            	scrollHandle(event, {
+	            		event_type: 'touchend'
+	            	})
+	            });
+			}
+		};
+
+		app.init();
+	})();
+	
+	
+</script>
+</html>
